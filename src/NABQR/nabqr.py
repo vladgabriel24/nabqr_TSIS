@@ -3,10 +3,11 @@ from .helper_functions import simulate_correlated_ar1_process, set_n_closest_to_
 import matplotlib.pyplot as plt
 import scienceplots
 
+import requests
+
 plt.style.use(["no-latex"])
 from .visualization import visualize_results
 import datetime as dt
-
 
 def run_nabqr_pipeline(
     n_samples=2000,
@@ -27,6 +28,9 @@ def run_nabqr_pipeline(
     visualize = True,
     taqr_limit=5000,
     save_files = True,
+    HuggingFace_token = None,
+    HuggingFace_inference_URL = None,
+    HuggingFace_inference_model = None,
 ):
     """
     Run the complete NABQR pipeline, which may include data simulation, model training,
@@ -191,7 +195,7 @@ def run_nabqr_pipeline(
         visualize_results(actuals_output, taqr_results, f"{data_source} example")
 
     # Calculate scores
-    scores = calculate_scores(
+    reliability_points_taqr, reliability_points_ensembles, reliability_points_corrected_ensembles, scores = calculate_scores(
         actuals_output,
         taqr_results,
         X_ensembles,
@@ -202,7 +206,48 @@ def run_nabqr_pipeline(
         visualize = visualize
     )
 
-    return corrected_ensembles, taqr_results, actuals_output, BETA_output, scores
+    AI_response = None
+
+    if HuggingFace_token != None and HuggingFace_inference_URL != None and HuggingFace_inference_model != None:
+
+        headers = {
+            "Authorization": f"Bearer {HuggingFace_token}",
+        }
+
+        def query(model_API, payload):
+            response = requests.post(model_API, headers=headers, json=payload)
+            return response.json()
+
+        prompt = f"""
+            You are an expert statistician and ML practitioner. Interpret the calibration / reliability of the NABQR forecasting procedure based on the numeric arrays provided below:
+
+            reliability_points_taqr: {reliability_points_taqr}
+            reliability_points_original_ensembles: {reliability_points_ensembles}
+            reliability_points_corrected_ensembles: {reliability_points_corrected_ensembles}
+
+            Reliability = how often actuals are below the given quantiles compared to the quantile levels.
+
+            Tasks:
+            1) Provide a very short (1-3 sentence) human-readable summary about calibration: is NABQR calibrated overall? Is it over- or under-confident at particular probability levels? Compare NABQR vs original ensembles vs corrected ensembles and HPE.
+            2) Produce a per-quantile table for NABQR, original ensembles, and corrected ensembles listing: nominal quantile, observed frequency, difference (observed - nominal), and a short assessment ("well-calibrated", "overconfident" meaning observed < nominal, or "underconfident" meaning observed > nominal).
+            3) Compute overall calibration metrics (rounded to 3 decimals): mean absolute calibration error (MACE) for each method (NABQR, original ensembles, corrected ensembles) where MACE = mean(|observed - nominal|).
+            4) Highlight notable features (e.g., systematic bias at low/high quantiles, U-shaped miscalibration indicating under/overdispersion, HPE behavior).
+            5) Give concise, actionable recommendations (2-5 bullet points) to improve calibration (model changes, post-processing, TAQR settings, more training data, ensemble diversification, diagnostic plots to run).
+            6) Provide a short list of suggested diagnostics to run next (e.g., PIT histogram, rank histogram, reliability by season/time-of-day, calibration after bias-correction).
+            Round all numeric outputs to 3 decimal places. Keep the human-readable summary first, then the JSON object only (no extra commentary).
+        """
+
+        AI_response = query(HuggingFace_inference_URL, {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"{prompt}"
+                }
+            ],
+            "model": f"{HuggingFace_inference_model}"
+        })["choices"][0]["message"]["content"]
+
+    return corrected_ensembles, taqr_results, actuals_output, BETA_output, scores, AI_response
 
 
 if __name__ == "__main__":

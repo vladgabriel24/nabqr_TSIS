@@ -375,7 +375,7 @@ def calculate_scores(
         f.write(latex_output)
 
     # Reliability plot 
-    reliability_func(
+    reliability_points_taqr, reliability_points_ensembles, reliability_points_corrected_ensembles = reliability_func(
         taqr_results,
         corrected_ensembles,
         raw_ensembles,
@@ -385,8 +385,7 @@ def calculate_scores(
         plot_reliability = visualize,
     )
 
-    return scores_df
-
+    return reliability_points_taqr, reliability_points_ensembles, reliability_points_corrected_ensembles, scores_df
 
 def run_r_script(X_filename, Y_filename, tau):
     """Run R script for quantile regression.
