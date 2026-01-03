@@ -163,8 +163,15 @@ def run_nabqr_pipeline(
                 plt.plot(X[:, i], color=colors[i], alpha=0.7)
         else:
             plt.plot(X, color=colors[0], alpha=0.7)
-        plt.plot(actuals, color="black", linewidth=2, label="Actuals")
-        plt.title("Simulated Data")
+            plt.plot(actuals, color="black", linewidth=2, label="Actuals")
+            # --- Improvement: Show ensemble quantiles in simulation ---
+            # If X is an ensemble, show the 0.1 and 0.9 quantiles to see the spread
+            if X.ndim > 1:
+                q10 = np.quantile(X, 0.1, axis=1)
+                q90 = np.quantile(X, 0.9, axis=1)
+                plt.fill_between(range(len(q10)), q10, q90, color='gray', alpha=0.3, label="10-90% Ensemble Spread")
+            # ---------------------------------------------------------
+            plt.title("Simulated Data")
         plt.xlabel("Time")
         plt.ylabel("Value")
         plt.legend()
@@ -186,9 +193,11 @@ def run_nabqr_pipeline(
     # Get today's date for file naming
     today = dt.datetime.today().strftime("%Y-%m-%d")
 
-    # Visualize results
+    # --- Improvement: Quantile Visualization ---
+    # Visualize results with explicit quantile labels
     if visualize:
-        visualize_results(actuals_output, taqr_results, f"{data_source} example")
+        visualize_results(actuals_output, taqr_results, f"{data_source} example", quantiles=quantiles)
+    # ------------------------------------------
 
     # Calculate scores
     scores = calculate_scores(
