@@ -17,6 +17,7 @@ from .helper_functions import (
     set_n_closest_to_zero,
     quantile_score,
     simulate_correlated_ar1_process,
+    simulate_wind_power_sde,
 )
 from .functions_for_TAQR import (
     rq_simplex_final,
@@ -45,6 +46,7 @@ __all__ = [
     "set_n_closest_to_zero",
     "quantile_score",
     "simulate_correlated_ar1_process",
+    simulate_wind_power_sde,
     # TAQR functions
     "rq_simplex_final",
     "one_step_quantile_prediction",
