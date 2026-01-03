@@ -225,6 +225,17 @@ def run_nabqr_pipeline(
             reliability_points_taqr: {reliability_points_taqr}
             reliability_points_original_ensembles: {reliability_points_ensembles}
             reliability_points_corrected_ensembles: {reliability_points_corrected_ensembles}
+
+            Reliability = how often actuals are below the given quantiles compared to the quantile levels.
+
+            Tasks:
+            1) Provide a very short (1-3 sentence) human-readable summary about calibration: is NABQR calibrated overall? Is it over- or under-confident at particular probability levels? Compare NABQR vs original ensembles vs corrected ensembles and HPE.
+            2) Produce a per-quantile table for NABQR, original ensembles, and corrected ensembles listing: nominal quantile, observed frequency, difference (observed - nominal), and a short assessment ("well-calibrated", "overconfident" meaning observed < nominal, or "underconfident" meaning observed > nominal).
+            3) Compute overall calibration metrics (rounded to 3 decimals): mean absolute calibration error (MACE) for each method (NABQR, original ensembles, corrected ensembles) where MACE = mean(|observed - nominal|).
+            4) Highlight notable features (e.g., systematic bias at low/high quantiles, U-shaped miscalibration indicating under/overdispersion, HPE behavior).
+            5) Give concise, actionable recommendations (2-5 bullet points) to improve calibration (model changes, post-processing, TAQR settings, more training data, ensemble diversification, diagnostic plots to run).
+            6) Provide a short list of suggested diagnostics to run next (e.g., PIT histogram, rank histogram, reliability by season/time-of-day, calibration after bias-correction).
+            Round all numeric outputs to 3 decimal places. Keep the human-readable summary first, then the JSON object only (no extra commentary).
         """
 
         AI_response = query(GoogleModelURL, {
