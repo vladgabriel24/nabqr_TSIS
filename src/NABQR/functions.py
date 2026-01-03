@@ -246,152 +246,6 @@ def multi_quantile_skill_score(y_true, y_pred, quantiles):
 
     return scores / N
 
-
-def reliability_func(
-    quantile_forecasts,
-    corrected_ensembles,
-    ensembles,
-    actuals,
-    corrected_taqr_quantiles,
-    data_source,
-    plot_reliability=True,
-):
-    n = len(actuals)
-
-    # Handling hpe
-    hpe = ensembles[:, 0]
-    hpe_quantile = 0.5
-    ensembles = ensembles[:, 1:]
-
-    quantiles_ensembles = np.arange(2, 100, 2) / 100
-    quantiles_corrected_ensembles = np.linspace(
-        0.05, 0.95, corrected_ensembles.shape[1]
-    ).round(3)
-
-    # Ensuring that we are working with numpy arrays
-    quantile_forecasts = (
-        np.array(quantile_forecasts)
-        if type(quantile_forecasts) != np.ndarray
-        else quantile_forecasts
-    )
-    actuals = np.array(actuals) if type(actuals) != np.ndarray else actuals
-    actuals_ensembles = actuals.copy()
-    corrected_taqr_quantiles = (
-        np.array(corrected_taqr_quantiles)
-        if type(corrected_taqr_quantiles) != np.ndarray
-        else corrected_taqr_quantiles
-    )
-    corrected_ensembles = (
-        np.array(corrected_ensembles)
-        if type(corrected_ensembles) != np.ndarray
-        else corrected_ensembles
-    )
-
-    m, n1 = quantile_forecasts.shape
-    if m != len(actuals):
-        quantile_forecasts = quantile_forecasts.T
-        m, n1 = quantile_forecasts.shape
-
-    # Ensure that the length match up
-    if len(actuals) != len(quantile_forecasts):
-        if len(actuals) < len(quantile_forecasts):
-            quantile_forecasts = quantile_forecasts[: len(actuals)]
-        else:
-            actuals_taqr = actuals[-len(quantile_forecasts) :]
-
-    if len(actuals) != len(corrected_ensembles):
-        if len(actuals) < len(corrected_ensembles):
-            corrected_ensembles = corrected_ensembles[: len(actuals)]
-        else:
-            actuals_taqr = actuals[-len(corrected_ensembles) :]
-
-    # Reliability: how often actuals are below the given quantiles compared to the quantile levels
-    reliability_points_taqr = []
-    for i, q in enumerate(corrected_taqr_quantiles):
-        forecast = quantile_forecasts[:, i]
-        observed_below = np.sum(actuals_taqr <= forecast) / n
-        reliability_points_taqr.append(observed_below)
-
-    reliability_points_taqr = np.array(reliability_points_taqr)
-
-    reliability_points_ensembles = []
-    n_ensembles = len(actuals_ensembles)
-    for i, q in enumerate(quantiles_ensembles):
-        forecast = ensembles[:, i]
-        observed_below = np.sum(actuals_ensembles <= forecast) / n_ensembles
-        reliability_points_ensembles.append(observed_below)
-
-    reliability_points_corrected_ensembles = []
-    for i, q in enumerate(quantiles_corrected_ensembles):
-        forecast = corrected_ensembles[:, i]
-        observed_below = np.sum(actuals_ensembles <= forecast) / n_ensembles
-        reliability_points_corrected_ensembles.append(observed_below)
-
-    # Handle hpe separately
-    observed_below_hpe = np.sum(actuals_ensembles <= hpe) / n_ensembles
-
-    reliability_points_ensembles = np.array(reliability_points_ensembles)
-
-    # Index of the 0.5 quantile
-    idx_05 = np.where(corrected_taqr_quantiles == 0.5)[0][0]
-
-    # Plotting the reliability plot
-    if plot_reliability:
-        import scienceplots
-
-        with plt.style.context("no-latex"):
-            plt.figure(figsize=(6, 6))
-            plt.plot(
-                [0, 1], [0, 1], "k--", label="Perfect Reliability"
-            )  # Diagonal line
-            plt.scatter(
-                corrected_taqr_quantiles,
-                reliability_points_taqr,
-                color="blue",
-                label="Reliability CorrectedTAQR",
-            )
-            plt.scatter(
-                quantiles_ensembles,
-                reliability_points_ensembles,
-                color="grey",
-                label="Reliability Original Ensembles",
-                marker="p",
-                alpha=0.5,
-            )
-            plt.scatter(
-                quantiles_corrected_ensembles,
-                reliability_points_corrected_ensembles,
-                color="green",
-                label="Reliability Corrected Ensembles",
-                marker="p",
-                alpha=0.5,
-            )
-            plt.scatter(
-                hpe_quantile,
-                observed_below_hpe,
-                color="grey",
-                label="Reliability HPE",
-                alpha=0.5,
-                marker="D",
-                s=25,
-            )
-            plt.xlabel("Nominal Quantiles")
-            plt.ylabel("Observed Frequencies")
-            plt.title(
-                f'Reliability Plot for {data_source.replace("_", " ").replace("lstm", "")}'
-            )
-            plt.legend()
-            plt.grid(True)
-            plt.savefig(f"reliability_plots/nolatex_reliability_plot_{data_source}.pdf")
-            plt.show()
-
-    return (
-        reliability_points_taqr,
-        reliability_points_ensembles,
-        reliability_points_corrected_ensembles,
-    )
-
-
 def calculate_scores(
     actuals,
     taqr_results,
@@ -539,7 +393,7 @@ def calculate_scores(
         f.write(latex_output)
 
     # Reliability plot 
-    reliability_func(
+    reliability_points_taqr, reliability_points_ensembles, reliability_points_corrected_ensembles = reliability_func(
         taqr_results,
         corrected_ensembles,
         raw_ensembles,
@@ -549,8 +403,7 @@ def calculate_scores(
         plot_reliability = visualize,
     )
 
-    return scores_df
-
+    return reliability_points_taqr, reliability_points_ensembles, reliability_points_corrected_ensembles, scores_df
 
 def remove_zero_columns(df):
     """Wrapper function to remove columns that contain only zeros from a DataFrame.
