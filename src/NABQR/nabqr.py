@@ -1,5 +1,5 @@
 from .functions import *
-from .helper_functions import simulate_correlated_ar1_process, set_n_closest_to_zero
+from .helper_functions import simulate_correlated_ar1_process, set_n_closest_to_zero, generate_pdf_report
 import matplotlib.pyplot as plt
 import scienceplots
 
@@ -220,15 +220,25 @@ def run_nabqr_pipeline(
             return response.json()
 
         prompt = f"""
-            You are an expert statistician and ML practitioner. Interpret the calibration / reliability of the NABQR forecasting procedure based on the numeric arrays provided below:
+            You are an expert statistician and ML practitioner.
 
-            reliability_points_taqr: {reliability_points_taqr}
-            reliability_points_original_ensembles: {reliability_points_ensembles}
-            reliability_points_corrected_ensembles: {reliability_points_corrected_ensembles}
+            NABQR quantiles forecasting procedure uses raw ensemble data that is provided to an LSTM that outputs corrected ensemble data. Based on the corrected data,
+            the TAQR algorithm is applied and then the quantile levels for the provided quantiles are estimated.
 
-            Reliability = how often actuals are below the given quantiles compared to the quantile levels.
+            Interpret the calibration / reliability of the NABQR quantiles forecasting procedure based on the following data provided below:
 
-            Task: Provide a short human-readable summary about calibration: is NABQR calibrated overall? Is it over- or under-confident at particular probability levels? Compare NABQR vs original ensembles vs corrected ensembles.
+            Quantiles to be estimated: {quantiles}
+            TAQR(Time Adaptive Quantile Regression) estimated quantile levels for the quantiles provided above using LSTM corrected ensemble data: {taqr_results}
+            Actual data: {actuals_output}
+
+            Points from the acutal data that are below the estimated quantiles compared to the quantile levels: {reliability_points_taqr}
+            Points from uncorrected ensemble train data that are below the estimated quantiles compared to the quantile levels: {reliability_points_ensembles}
+            Points from LSTM corrected ensemble train data that are below the estimated quantiles compared to the quantile levels: {reliability_points_corrected_ensembles}
+
+            Tasks: 
+            1) Compare the actual data with TAQR estimated results. How accurate they are?
+            2) Based on the number of points that are below the predicted quantile level from different data sources, how well did NABQR pipeline improved the quantile regression method?
+            3) Format the output as a short and concise research report in UTF-8 format that will be written in a PDF file. Do not use markdown format symbols.
         """
 
         AI_response = query(GoogleModelURL, {
@@ -241,7 +251,14 @@ def run_nabqr_pipeline(
                     ]
                 }
             ]
-        })['candidates'][0]['content']['parts'][0]['text']
+        })
+        
+        try:
+            AI_respone_text = AI_response['candidates'][0]['content']['parts'][0]['text']
+            generate_pdf_report(AI_respone_text, filename='nabqr_report.pdf', title='NABQR calibration report') 
+        except:
+            print("\nAI response failed!\n")
+            print(f"\nOutput:{AI_response}\n")   
 
     return corrected_ensembles, taqr_results, actuals_output, BETA_output, scores, AI_response
 
