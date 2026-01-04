@@ -8,8 +8,13 @@ It implements an adaptive simplex algorithm for quantile regression problems.
 import numpy as np
 import scipy.linalg
 import time
+# --- Improvement 5: Replace print/naked except with Logging ---
+import logging
+
+logger = logging.getLogger(__name__)
+# --------------------------------------------------------------
 from scipy import linalg as la
-# from sklearn.linear_model import QuantileRegressor # TODO: Removed 13/1-25, check if it works
+import statsmodels.api as sm
 from .helper_functions import *
 import pandas as pd
 
@@ -61,8 +66,10 @@ def opdatering_final(
     tuple
         Updated parameters (Ih, Ihc, xB, Xny, Rny, P, n, i)
     """
-    Xny[Xny == np.inf] = 1
-    Xny[Xny == -np.inf] = 1
+
+    if np.any(np.isinf(Xny)):
+        Xny = np.nan_to_num(Xny, nan=0.0, posinf=1e12, neginf=-1e12)
+
 
     Xny = np.vstack((Xny, X[n + i - 2, :]))
     Index = np.arange(Xny[:-1, Iy].shape[0])
@@ -225,17 +232,26 @@ def rq_simplex_alg_final(Ih, Ihc, n, K, xB, Xny, IH, P, tau):
     tuple
         Algorithm parameters for the next iteration
     """
+    # --- Improvement 2: Numerical Stability ---
+    # Numerical stability: use pseudo-inverse with a fixed tolerance or 
+    # add a small regularization term if the matrix is ill-conditioned.
+    Xh = Xny[Ih, :]
     try:
-        invXh = la.inv(Xny[Ih, :])
+        # Check condition number
+        cond = np.linalg.cond(Xh)
+        if cond > 1e12:
+            # If ill-conditioned, use pseudo-inverse
+            invXh = np.linalg.pinv(Xh, rcond=1e-15)
+        else:
+            invXh = la.inv(Xh)
     except np.linalg.LinAlgError:
-        print("Error in inverse matrix operation. Trying pseudo-inverse instead.")
-        invXh = np.linalg.pinv(Xny[Ih, :])
+        # Fallback to pseudo-inverse for singular matrices
+        invXh = np.linalg.pinv(Xh, rcond=1e-15)
     except Exception as e:
         raise ValueError(
-            "Error in inverse matrix operation. Most likely cause of error: "
-            "- Increase length of data, "
-            "- Ensure no collinearity in the data"
+            f"Matrix inversion failed even with pseudo-inverse. Matrix shape: {Xh.shape}"
         ) from e
+    # ------------------------------------------
 
     cB = (P < 0) + P * tau
     cC = np.vstack((np.ones(K) * tau, np.ones(K) * (1 - tau))).reshape(-1, 1)
@@ -494,6 +510,7 @@ def one_step_quantile_prediction(
     quantile=0.5,
     already_correct_size=False,
     n_in_X=5000,
+    print_output=True,
 ):
     """Perform one-step quantile prediction using TAQR.
 
@@ -516,13 +533,15 @@ def one_step_quantile_prediction(
         Whether inputs are already correctly sized, by default False
     n_in_X : int, optional
         Number of observations to use in X, by default 5000
+    print_output : bool, optional
+        Whether to print diagnostic output, by default True
 
     Returns
     -------
     tuple
         (y_pred, y_actual, BETA) Predictions, actual values, and coefficients
     """
-    assert n_init <= n_full - 2, "n_init must be less than n_full"
+    assert n_init <= n_full - 2, "n_init must be less than or equal to n_full - 2"
 
     if type(X_input) == pd.DataFrame:
         X_input = X_input.to_numpy()
@@ -531,6 +550,12 @@ def one_step_quantile_prediction(
         Y_input = Y_input.to_numpy()
 
     n, m = X_input.shape
+    if print_output:
+        # --- Improvement 5: Replace print/naked except with Logging ---
+        print(f"X_input shape: {X_input.shape}")
+        logger.debug(f"X_input shape: {X_input.shape}")
+        # --------------------------------------------------------------
+
     full_length, p = X_input.shape
 
     X = X_input[:n_full, :].copy()
@@ -539,29 +564,23 @@ def one_step_quantile_prediction(
     X_for_residuals = X[:n_init, :]
     Y_for_residuals = Y[:n_init]
 
-    np.savetxt("X_for_residuals.csv", X_for_residuals, delimiter=",")
-    np.savetxt("Y_for_residuals.csv", Y_for_residuals, delimiter=",")
+    # --- Improvement 1: Remove R dependency ---
+    beta_init, residuals = run_quantile_regression_python(X_for_residuals, Y_for_residuals, tau=quantile)
+    # ------------------------------------------
 
-    run_r_script("X_for_residuals.csv", "Y_for_residuals.csv", tau=quantile)
-
-    def ignore_first_column(s):
-        return float(s)
-
-    residuals = np.genfromtxt(
-        "rq_fit_residuals.csv",
-        delimiter=",",
-        skip_header=1,
-        usecols=(1,),
-        converters={0: ignore_first_column},
-    )
-
-    beta_init = np.genfromtxt(
-        "rq_fit_coefficients.csv",
-        delimiter=",",
-        skip_header=1,
-        usecols=(1,),
-        converters={0: ignore_first_column},
-    )
+    if print_output:
+        # --- Improvement 5: Replace print/naked except with Logging ---
+        print(f"len of beta_init: {len(beta_init)}")
+        print(
+            f"There is: {sum(residuals == 0)} zeros in residuals and {sum(abs(residuals) < 1e-8)} close to zeroes"
+        )
+        print(f"p: {p}")
+        logger.debug(f"len of beta_init: {len(beta_init)}")
+        logger.debug(
+            f"There is: {sum(residuals == 0)} zeros in residuals and {sum(abs(residuals) < 1e-8)} close to zeroes"
+        )
+        logger.debug(f"p: {p}")
+        # --------------------------------------------------------------
 
     if len(beta_init) < p:
         beta_init = np.append(beta_init, np.ones(p - len(beta_init)))
@@ -570,6 +589,12 @@ def one_step_quantile_prediction(
 
     r_init = set_n_closest_to_zero(arr=residuals, n=len(beta_init))
 
+    if print_output:
+        # --- Improvement 5: Replace print/naked except with Logging ---
+        print(f"{sum(r_init == 0)} r_init zeros")
+        logger.debug(f"{sum(r_init == 0)} r_init zeros")
+        # --------------------------------------------------------------
+
     X_full = np.column_stack((X, Y, np.random.choice([1, 1], size=n_full)))
     IX = np.arange(p)
     Iy = p
@@ -577,6 +602,11 @@ def one_step_quantile_prediction(
     bins = np.array([-np.inf, np.inf])
     tau = quantile
     n_in_bin = int(1.0 * full_length)
+    if print_output:
+        # --- Improvement 5: Replace print/naked except with Logging ---
+        print(f"n_in_bin: {n_in_bin}")
+        logger.debug(f"n_in_bin: {n_in_bin}")
+        # --------------------------------------------------------------
 
     n_input = n_in_X
     N, BETA, GAIN, Ld, Rny, Mx, Re, CON1, T = rq_simplex_final(
@@ -585,48 +615,37 @@ def one_step_quantile_prediction(
 
     y_pred = np.sum((X_input[(n_input + 2) : (n_full), :] * BETA[1:, :]), axis=1)
     y_actual = Y_input[(n_input) : (n_full - 2)]
+    
+    if print_output:
+        # --- Improvement 5: Replace print/naked except with Logging ---
+        print(f"y_pred shape: {y_pred.shape}")
+        print(f"y_actual shape: {y_actual.shape}")
+        logger.debug(f"y_pred shape: {y_pred.shape}")
+        logger.debug(f"y_actual shape: {y_actual.shape}")
+        # --------------------------------------------------------------
 
     return y_pred, y_actual, BETA
 
 
-def run_r_script(X_filename, Y_filename, tau):
-    """Run R script for quantile regression.
+# --- Improvement 1: Remove R dependency ---
+def run_quantile_regression_python(X, y, tau):
+    """Run quantile regression using statsmodels.
+# ------------------------------------------
 
     Parameters
     ----------
-    X_filename : str
-        Path to X data CSV file
-    Y_filename : str
-        Path to Y data CSV file
+    X : numpy.ndarray
+        Features matrix
+    y : numpy.ndarray
+        Target values
     tau : float
         Quantile level
+
+    Returns
+    -------
+    tuple
+        (coefficients, residuals)
     """
-    import subprocess
-
-    process = subprocess.Popen(
-        ["R", "--vanilla"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
-    )
-
-    r_script = f"""
-    options(warn = -1)
-    library(onlineforecast) 
-    library(quantreg) 
-    library(readr) 
-    X_full <- read_csv("{X_filename}", col_names = FALSE, show_col_types = FALSE) 
-    y <- read_csv("{Y_filename}", col_names = "y", show_col_types = FALSE) 
-    X_full <- X_full[1:500,]
-    data <- cbind(X_full, y[1:500,1]) 
-    predictor_cols <- colnames(X_full) 
-    formula_string <- paste("y ~ 0+", paste(predictor_cols, collapse = " + ")) 
-    formula <- as.formula(formula_string) 
-    rq_fit <- rq(formula, tau = {tau}, data = data ) 
-    write.csv(rq_fit$coefficients, "rq_fit_coefficients.csv") 
-    write.csv(rq_fit$residuals, "rq_fit_residuals.csv") 
-    """
-
-    for line in r_script.strip().split("\n"):
-        process.stdin.write(line.encode("utf-8") + b"\n")
-
-    process.stdin.close()
-    process.stdout.read()
-    process.terminate()
+    model = sm.QuantReg(y, X)
+    res = model.fit(q=tau)
+    return res.params, res.resid
