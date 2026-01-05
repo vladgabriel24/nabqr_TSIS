@@ -1,5 +1,5 @@
 from .functions import *
-from .helper_functions import simulate_correlated_ar1_process, set_n_closest_to_zero, generate_pdf_report
+from .helper_functions import simulate_correlated_ar1_process, set_n_closest_to_zero
 import matplotlib.pyplot as plt
 import scienceplots
 
