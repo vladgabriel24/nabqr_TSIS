@@ -11,6 +11,7 @@ from .functions import (
     calculate_crps,
     calculate_qss,
     pipeline,
+    generateAIReport_Gemini,
 )
 from .helper_functions import (
     set_n_smallest_to_zero,
@@ -41,6 +42,7 @@ __all__ = [
     "calculate_crps",
     "calculate_qss",
     "pipeline",
+    "generateAIReport_Gemini",
     # Helper functions
     "set_n_smallest_to_zero",
     "set_n_closest_to_zero",
