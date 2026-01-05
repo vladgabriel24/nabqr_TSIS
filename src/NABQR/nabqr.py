@@ -214,45 +214,7 @@ def run_nabqr_pipeline(
         visualize = visualize
     )
 
-    AI_response = None
-
-    if GoogleAPI_token != None:
-
-        def query(model_API, payload):
-
-            header = {
-                "x-goog-api-key": f"{GoogleAPI_token}",
-                "Content-Type": "application/json",
-            }
-
-            response = requests.post(model_API, headers=header, json=payload)
-            return response.json()
-
-        prompt = f"""
-            You are an expert statistician and ML practitioner. Interpret the calibration / reliability of the NABQR forecasting procedure based on the numeric arrays provided below:
-
-            reliability_points_taqr: {reliability_points_taqr}
-            reliability_points_original_ensembles: {reliability_points_ensembles}
-            reliability_points_corrected_ensembles: {reliability_points_corrected_ensembles}
-
-            Reliability = how often actuals are below the given quantiles compared to the quantile levels.
-
-            Task: Provide a short human-readable summary about calibration: is NABQR calibrated overall? Is it over- or under-confident at particular probability levels? Compare NABQR vs original ensembles vs corrected ensembles.
-        """
-
-        AI_response = query(GoogleModelURL, {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": f"{prompt}"
-                        }
-                    ]
-                }
-            ]
-        })['candidates'][0]['content']['parts'][0]['text']
-
-    return corrected_ensembles, taqr_results, actuals_output, BETA_output, scores, AI_response
+    return corrected_ensembles, taqr_results, actuals_output, BETA_output, scores, reliability_points_taqr, reliability_points_ensembles, reliability_points_corrected_ensembles
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
 import time
+import datetime as dt
 
 def set_n_smallest_to_zero(arr, n):
     """Set the n smallest elements in an array to zero.
@@ -517,3 +518,102 @@ def simulate_wind_power_sde(params: Dict[str, float], T: float = 500, dt: float 
         n_ensembles=50
     )
     return t, X, ensembles
+
+def generate_pdf_report(
+    ai_text,
+    filename="nabqr_report.pdf",
+    title="NABQR AI Report",
+    author=None,
+    created=None,
+):
+    """
+    Generate a simple PDF report from AI response text.
+
+    Parameters
+    - ai_text: str  -- AI model response text to include in the report.
+    - filename: str -- output PDF filename (default: nabqr_report.pdf).
+    - title: str    -- document title.
+    - author: str   -- optional author string.
+    - created: str  -- optional timestamp string. If None, current datetime is used.
+
+    Returns
+    - filename: str -- path to the written PDF file.
+
+    Raises
+    - ImportError if neither reportlab nor fpdf is available.
+    """
+
+    if created is None:
+        created = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Prefer reportlab for nicer formatting; fall back to fpdf if needed.
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import inch
+
+        doc = SimpleDocTemplate(
+            filename,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72,
+        )
+        styles = getSampleStyleSheet()
+        story = []
+        story.append(Paragraph(title, styles["Title"]))
+        meta = f"Generated: {created}"
+        if author:
+            meta += f" \u00097 Author: {author}"
+        story.append(Paragraph(meta, styles["Normal"]))
+        story.append(Spacer(1, 0.2 * inch))
+
+        paragraphs = [p.strip() for p in ai_text.split("\n\n") if p.strip()]
+        if not paragraphs:
+            paragraphs = [ai_text]
+
+        for p in paragraphs:
+            p = p.replace("\n", " ")
+            story.append(Paragraph(p, styles["BodyText"]))
+            story.append(Spacer(1, 0.1 * inch))
+
+        doc.build(story)
+        return filename
+
+    except Exception:
+        # Try FPDF if reportlab isn't available
+        try:
+            from fpdf import FPDF
+
+            pdf = FPDF()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.add_page()
+            pdf.set_font("Arial", size=16)
+            pdf.cell(0, 10, title, ln=True)
+            pdf.set_font("Arial", size=10)
+            meta = f"Generated: {created}"
+            if author:
+                meta += f"  Author: {author}"
+            pdf.ln(4)
+            pdf.multi_cell(0, 6, meta)
+            pdf.ln(6)
+            pdf.set_font("Arial", size=11)
+
+            paragraphs = [p.strip() for p in ai_text.split("\n\n") if p.strip()]
+            if not paragraphs:
+                paragraphs = [ai_text]
+
+            for p in paragraphs:
+                p = p.replace("\n", " ")
+                pdf.multi_cell(0, 6, p)
+                pdf.ln(2)
+
+            pdf.output(filename)
+            return filename
+
+        except Exception:
+            raise ImportError(
+                "Cannot generate PDF: install 'reportlab' or 'fpdf' (pip install reportlab fpdf)."
+            )
