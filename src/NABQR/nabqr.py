@@ -28,8 +28,6 @@ def run_nabqr_pipeline(
     visualize = True,
     taqr_limit=5000,
     save_files = True,
-    GoogleAPI_token = None,
-    GoogleModelURL = None,
 ):
     """
     Run the complete NABQR pipeline, which may include data simulation, model training,
