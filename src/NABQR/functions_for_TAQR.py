@@ -8,7 +8,7 @@ It implements an adaptive simplex algorithm for quantile regression problems.
 import numpy as np
 import scipy.linalg
 import time
-# --- Improvement 5: Replace print/naked except with Logging ---
+# --- Improvement 5: Logging ---
 import logging
 
 logger = logging.getLogger(__name__)
@@ -233,8 +233,6 @@ def rq_simplex_alg_final(Ih, Ihc, n, K, xB, Xny, IH, P, tau):
         Algorithm parameters for the next iteration
     """
     # --- Improvement 2: Numerical Stability ---
-    # Numerical stability: use pseudo-inverse with a fixed tolerance or 
-    # add a small regularization term if the matrix is ill-conditioned.
     Xh = Xny[Ih, :]
     try:
         # Check condition number
@@ -551,7 +549,7 @@ def one_step_quantile_prediction(
 
     n, m = X_input.shape
     if print_output:
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(f"X_input shape: {X_input.shape}")
         logger.debug(f"X_input shape: {X_input.shape}")
         # --------------------------------------------------------------
@@ -566,10 +564,9 @@ def one_step_quantile_prediction(
 
     # --- Improvement 1: Remove R dependency ---
     beta_init, residuals = run_quantile_regression_python(X_for_residuals, Y_for_residuals, tau=quantile)
-    # ------------------------------------------
 
     if print_output:
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(f"len of beta_init: {len(beta_init)}")
         print(
             f"There is: {sum(residuals == 0)} zeros in residuals and {sum(abs(residuals) < 1e-8)} close to zeroes"
@@ -590,7 +587,7 @@ def one_step_quantile_prediction(
     r_init = set_n_closest_to_zero(arr=residuals, n=len(beta_init))
 
     if print_output:
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(f"{sum(r_init == 0)} r_init zeros")
         logger.debug(f"{sum(r_init == 0)} r_init zeros")
         # --------------------------------------------------------------
@@ -603,7 +600,7 @@ def one_step_quantile_prediction(
     tau = quantile
     n_in_bin = int(1.0 * full_length)
     if print_output:
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(f"n_in_bin: {n_in_bin}")
         logger.debug(f"n_in_bin: {n_in_bin}")
         # --------------------------------------------------------------
@@ -617,7 +614,7 @@ def one_step_quantile_prediction(
     y_actual = Y_input[(n_input) : (n_full - 2)]
     
     if print_output:
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(f"y_pred shape: {y_pred.shape}")
         print(f"y_actual shape: {y_actual.shape}")
         logger.debug(f"y_pred shape: {y_pred.shape}")

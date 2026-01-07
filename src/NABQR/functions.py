@@ -16,7 +16,7 @@ import properscoring as ps
 import tensorflow as tf
 import tensorflow_probability as tfp
 import datetime as dt
-# --- Improvement 5: Replace print/naked except with Logging ---
+# --- Improvement 5: Logging ---
 import logging
 
 # Configure logger
@@ -170,7 +170,7 @@ def calculate_crps(actuals, corrected_ensembles):
     float
         Mean CRPS score
     """
-    # --- Improvement 5: Replace print/naked except with Logging ---
+    # --- Improvement 5: Logging ---
     try:
         crps = ps.crps_ensemble(actuals, corrected_ensembles)
         return np.mean(crps)
@@ -199,7 +199,7 @@ def calculate_qss(actuals, taqr_results, quantiles):
         Quantile Skill Score
     """
     qss_scores = multi_quantile_skill_score(actuals, taqr_results, quantiles)
-    # --- Improvement 5: Replace print/naked except with Logging ---
+    # --- Improvement 5: Logging ---
     table = pd.DataFrame({
         "Quantiles": quantiles,
         "QSS NABQR": qss_scores
@@ -373,7 +373,7 @@ def calculate_scores(
     # Create DataFrame
     scores_df = pd.DataFrame(scores_data).T
 
-    # --- Improvement 5: Replace print/naked except with Logging ---
+    # --- Improvement 5: Logging ---
     print("Scores: ")
     print(scores_df)
     logger.info(f"Scores for {data_source}:\n{scores_df}")
@@ -786,7 +786,7 @@ def train_model_lstm(
         epoch_val_loss /= num_val_batches
         val_loss_history.append(epoch_val_loss)
 
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(
             f"Epoch {epoch+1} Train Loss: {epoch_train_loss:.4f} Validation Loss: {epoch_val_loss:.4f}"
         )
@@ -835,7 +835,7 @@ def run_taqr(corrected_ensembles, actuals, quantiles, n_init, n_full, n_in_X):
     actuals_output = []
     BETA_output = []
     for q in quantiles:
-        # --- Improvement 5: Replace print/naked except with Logging ---
+        # --- Improvement 5: Logging ---
         print(f"Running TAQR for quantile: {q}")
         logger.info(f"Running TAQR for quantile: {q}")
         # --------------------------------------------------------------
@@ -1110,14 +1110,13 @@ class NABQRPipeline:
 
         save_files = self.kwargs.get("save_files", True)
         if save_files:
-            # --- Improvement 5: Replace print/naked except with Logging ---
+            # --- Improvement 5: Logging ---
             try:
                 today = dt.datetime.today().strftime("%Y-%m-%d")
                 self.model.save(f"Model_{self.name}_{self.epochs}_{today}.keras")
             except Exception as e:
                 logger.warning(f"Failed to save model with date suffix: {e}. Saving with default name.")
                 self.model.save(f"Models_{self.name}_{self.epochs}.keras")
-            # --------------------------------------------------------------
 
     def run(self, X, y):
         """Execute the full pipeline."""

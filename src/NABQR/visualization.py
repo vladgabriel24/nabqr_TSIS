@@ -5,14 +5,13 @@ import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.cm import ScalarMappable
-# --- Improvement 5: Replace print/naked except with Logging ---
+# --- Improvement 5: Logging ---
 import logging
 
 logger = logging.getLogger(__name__)
-# --------------------------------------------------------------
 
 
-# --- Improvement: Quantile Visualization ---
+# --- Improvement 4: Quantile Visualization ---
 def visualize_results(y_hat, q_hat, ylabel, quantiles=None):
     """Create a visualization of prediction intervals with actual values.
 
@@ -39,13 +38,12 @@ def visualize_results(y_hat, q_hat, ylabel, quantiles=None):
     - Automatically adjusts x-axis date formatting
     """
     y_hat = pd.Series(np.array(y_hat).flatten())
-    # --- Improvement 5: Replace print/naked except with Logging ---
+    # --- Improvement 5: Logging ---
     try:
         taqr_results_corrected_plot = pd.DataFrame(np.array(q_hat).T, index=y_hat.index)
     except Exception as e:
         logger.debug(f"Failed to create DataFrame with transpose: {e}. Trying without transpose.")
         taqr_results_corrected_plot = pd.DataFrame(np.array(q_hat), index=y_hat.index)
-    # --------------------------------------------------------------
 
     m = taqr_results_corrected_plot.shape[1]  # Ensemble size
     # Define the color gradient from dark blue to light cyan
